@@ -37,18 +37,18 @@ spec:
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
-metadate:
+metadata:
   name: demo
   namespace: devlopment
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
 spec:
-   selector:
-     app: jenkins-demo
   rules:
   - host: deploy.lucky.com
     http:
       paths:
       - path: /
-        pathType: Prefix
+        pathType:  Prefix
         backend:
          service:
            name: demo
