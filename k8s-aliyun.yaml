@@ -34,3 +34,23 @@ spec:
    - port: 18888
      targetPort: 18888
      nodePort: 31889
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadate:
+  name: demo
+  namespace: devlopment
+spec:
+   selector:
+     app: jenkins-demo
+  rules:
+  - host: deploy.lucky.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+         service:
+           name: demo
+           port:
+            number: 18888
