@@ -1,0 +1,78 @@
+node('jnlp-slave') {
+    stage('拉取代码') {
+        echo "1.Clone Stage"
+        git url: "https://github.com/zenan08/jenkins-sample.git"
+        script {
+            build_tag = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+        }
+    }
+    stage('获取版本号') {
+      echo "2.Test Stage"
+
+    }
+    stage('构建') {
+        echo "3.Build Docker Image Stage"
+        sh "docker build -t registry.cn-shenzhen.aliyuncs.com/leizenan/deploy:${build_tag} ."
+    }
+    stage('推送镜像至阿里云仓库') {
+        echo "4.Push Docker Image Stage"
+			sh "docker login -u leizenan08 -p 6223856lzn registry.cn-shenzhen.aliyuncs.com"
+            sh "docker push registry.cn-shenzhen.aliyuncs.com/leizenan/deploy:${build_tag}"
+        }
+    
+    stage('K8S-开发devlopment环境发布') {
+        echo "5. Deploy DEV"
+		sh "pwd"
+		sh "sed -i 's/<BUILD_TAG>/${build_tag}/' k8s-aliyun.yaml"
+        sh "sed -i 's/<BRANCH_NAME>/${env.BRANCH_NAME}/' k8s-aliyun.yaml"
+        sh "bash running-aliyun.sh"
+        sh "kubectl apply -f k8s-aliyun.yaml  --validate=false"
+	}	
+	stage('K8S-测试qa环境发布') {	
+		def userInput = input(
+            id: 'userInput',
+
+            message: '是否发布至qa测试环境?',
+            parameters: [
+                [
+                    $class: 'ChoiceParameterDefinition',
+                    choices: "YES\nNO",
+                    name: 'Env'
+                ]
+            ]
+        )
+        echo "This is a deploy step to ${userInput}"
+        if (userInput == "YES") {
+            sh "sed -i 's/<BUILD_TAG>/${build_tag}/' k8s-qa.yaml"
+            sh "sed -i 's/<BRANCH_NAME>/${env.BRANCH_NAME}/' k8s-qa.yaml"
+//            sh "bash running-qa.sh"
+            sh "kubectl apply -f k8s-qa.yaml --validate=false"
+            sh "sleep 6"
+            sh "kubectl get pods -n qatest"
+        } else {
+            //exit
+        }
+    }
+	stage('K8S-生产prod环境发布') {	
+		def userInput = input(
+
+            id: 'userInput',
+            message: '是否发布至生产prod环境?',
+            parameters: [
+                [
+                    $class: 'ChoiceParameterDefinition',
+                    choices: "YES\nNO",
+                    name: 'Env'
+                ]
+            ]
+        )
+        echo "This is a deploy step to ${userInput}"
+        if (userInput == "YES") {
+            sh "sed -i 's/<BUILD_TAG>/${build_tag}/' k8s-prod.yaml"
+            sh "sed -i 's/<BRANCH_NAME>/${env.BRANCH_NAME}/' k8s-prod.yaml"
+//            sh "bash running-production.sh"
+            sh "cat k8s-prod.yaml"
+            sh "kubectl apply -f k8s-prod.yaml --record --validate=false"
+        }
+    }
+}
